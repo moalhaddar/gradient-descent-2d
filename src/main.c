@@ -104,6 +104,13 @@ void DrawFunction(Camera2D camera) {
     // 
     // For point1: 
     //   x1 = x - lineLength/2
+    //   dy / dx = m
+    //   y2 - y1 = m * (x2 - x1)
+    //   y1 - y = m * (x1 - x)
+    //   y1 = y + m * (x1 - x)
+    //   we substitute x1 = x - lineLength/2
+    //   
+    //   y1 = y + slope * (-lineLength/2)
     //   y1 = y - (lineLength/2) * slope
     //   This moves back along the line by half the length
     // 
