@@ -2,6 +2,7 @@
 #include <raylib.h>
 #include <raymath.h>
 #include <math.h>
+#include <time.h>
 
 #define RAYGUI_IMPLEMENTATION
 #include "raygui.h"
@@ -9,9 +10,14 @@
 #define WORLD_WIDTH 10000
 #define WORLD_HEIGHT 10000
 #define GRID_STEP 100
+#define H 0.00001
 
 float weight1_1, weight2_1;
 float weight1_2, weight2_2;
+double inputValue;
+double targetInputValue;
+float learnRate = 0.2;
+bool continuousLearning = false;
 
 Vector2 GetGridCoordinates(Vector2 position) {
     return (Vector2){position.x / GRID_STEP, position.y / GRID_STEP};
@@ -21,13 +27,34 @@ Vector2 GetWorldCoordinates(Vector2 gridPosition) {
     return (Vector2){gridPosition.x * GRID_STEP, gridPosition.y * GRID_STEP};
 }
 
-int DrawWeightControls() {
+float fx(float x) {
+    return 0.2 * powf(x, 4) + 0.1 * powf(x, 3) - powf(x, 2) + 2;
+};
+
+void learn() {
+    float h = 0.0001;
+    float slope = (fx(targetInputValue + h) - fx(targetInputValue)) / h;
+    targetInputValue -= slope * learnRate;
+}
+
+void GradientDescentControls() {
     Vector2 anchor01 = { 56, 48 };
-    GuiGroupBox((Rectangle){ anchor01.x + 0, anchor01.y + 0, 256, 200 }, "Weights");
-    GuiSlider((Rectangle){ anchor01.x + 64, anchor01.y + 32, 136, 24 }, "W1,1", NULL, &weight1_1, -1, 1);
-    GuiSlider((Rectangle){ anchor01.x + 64, anchor01.y + 72, 136, 24 }, "W1,2", NULL, &weight1_2, -1, 1);
-    GuiSlider((Rectangle){ anchor01.x + 64, anchor01.y + 112, 136, 24 }, "W2,1", NULL, &weight2_1, -1, 1);
-    GuiSlider((Rectangle){ anchor01.x + 64, anchor01.y + 152, 136, 24 }, "W2,2", NULL, &weight2_2, -1, 1);
+    GuiGroupBox((Rectangle){ anchor01.x + 0, anchor01.y + 0, 256, 240 }, "Gradient Descent");
+    int randomClicked = GuiButton((Rectangle){ anchor01.x + 64, anchor01.y + 32, 136, 24 }, "Random");
+    int learnClicked = GuiButton((Rectangle){ anchor01.x + 64, anchor01.y + 72, 136, 24 }, "Learn");
+    GuiSlider((Rectangle){ anchor01.x + 64, anchor01.y + 112, 136, 24 }, "Learn", NULL, &learnRate, 0, 1);
+    GuiToggle((Rectangle){ anchor01.x + 64, anchor01.y + 152, 136, 24 }, "Continuous", &continuousLearning);
+
+    if (randomClicked) {
+        targetInputValue = ((double)rand() / RAND_MAX) * 6 - 3;
+        printf("New target input value: %f\n", targetInputValue);
+    }
+
+    if (learnClicked || continuousLearning) {
+        learn();
+    }
+
+    inputValue = Lerp(inputValue, targetInputValue, 0.01f);
 }
 
 int classify(float input_1, float input_2) {
@@ -82,9 +109,38 @@ void DrawInfiniteGrid(Camera2D camera) {
     DrawLine(originWorld.x, startY * GRID_STEP, originWorld.x, endY * GRID_STEP, GREEN);
 }
 
-float fx(float x) {
-    return 0.2 * powf(x, 4) + 0.1 * powf(x, 3) - powf(x, 2) + 2;
-};
+void DrawSlopeLine(float x) {
+    float y = fx(x);
+    float slope = (fx(x + H) - fx(x)) / H;
+
+    // The line equation is y = mx + b, where m is slope and b is y-intercept
+    // We want to create a line segment centered at (x, y) with length 'lineLength'
+    // To do this, we move half the length in both directions along the line
+    // 
+    // For point1: 
+    //   x1 = x - lineLength/2
+    //   dy / dx = m
+    //   y2 - y1 = m * (x2 - x1)
+    //   y1 - y = m * (x1 - x)
+    //   y1 = y + m * (x1 - x)
+    //   we substitute x1 = x - lineLength/2
+    //   
+    //   y1 = y + slope * (-lineLength/2)
+    //   y1 = y - (lineLength/2) * slope
+    //   This moves back along the line by half the length
+    // 
+    // For point2:
+    //   x2 = x + lineLength/2
+    //   y2 = y + (lineLength/2) * slope
+    //   This moves forward along the line by half the length
+
+    float lineLength = 1.0f;
+    Vector2 point1 = GetWorldCoordinates((Vector2){x - lineLength/2, -(y - lineLength/2 * slope)});
+    Vector2 point2 = GetWorldCoordinates((Vector2){x + lineLength/2, -(y + lineLength/2 * slope)});
+    Vector2 center = GetWorldCoordinates((Vector2){.x = x, .y = -y});
+    DrawLineEx(point1, point2, 4.0f, RED);
+    DrawCircleV(center, 5, BLUE);
+}
 
 void DrawFunction(Camera2D camera) {
     Vector2 cameraWorldPos = GetScreenToWorld2D((Vector2){-1000, -1000}, camera);
@@ -109,37 +165,9 @@ void DrawFunction(Camera2D camera) {
 
     DrawLineStrip(points, pointCount, YELLOW);
 
-    float h = 0.0001;
     Vector2 mousePos = GetScreenToWorld2D(GetMousePosition(), camera);
     Vector2 mouseGridPos = GetGridCoordinates(mousePos);
     float x = mouseGridPos.x;
-    float y = fx(x);
-    float slope = (fx(x + h) - fx(x)) / h;
-
-    float lineLength = 1.0f;
-        // The line equation is y = mx + b, where m is slope and b is y-intercept
-    // We want to create a line segment centered at (x, y) with length 'lineLength'
-    // To do this, we move half the length in both directions along the line
-    // 
-    // For point1: 
-    //   x1 = x - lineLength/2
-    //   dy / dx = m
-    //   y2 - y1 = m * (x2 - x1)
-    //   y1 - y = m * (x1 - x)
-    //   y1 = y + m * (x1 - x)
-    //   we substitute x1 = x - lineLength/2
-    //   
-    //   y1 = y + slope * (-lineLength/2)
-    //   y1 = y - (lineLength/2) * slope
-    //   This moves back along the line by half the length
-    // 
-    // For point2:
-    //   x2 = x + lineLength/2
-    //   y2 = y + (lineLength/2) * slope
-    //   This moves forward along the line by half the length
-    Vector2 point1 = GetWorldCoordinates((Vector2){x - lineLength/2, -(y - lineLength/2 * slope)});
-    Vector2 point2 = GetWorldCoordinates((Vector2){x + lineLength/2, -(y + lineLength/2 * slope)});
-    DrawLineEx(point1, point2, 4.0f, RED);
 }
 
 int main() {
@@ -148,6 +176,10 @@ int main() {
     InitWindow(16 * factor, 9 * factor, "Neural Network");
     GuiLoadStyle(styles_path);
     GuiSetStyle(DEFAULT, TEXT_SIZE, 20);
+
+    srand(time(NULL));  // Initialize random seed
+    inputValue = ((double)rand() / RAND_MAX) * 6 - 3;  // Initial random value between -5 and 5
+    targetInputValue = inputValue;
 
     Vector2 target = {0, 0};
     Vector2 offset = {0, 0};
@@ -198,8 +230,6 @@ int main() {
 
         ClearBackground(GetColor(GuiGetStyle(DEFAULT, BACKGROUND_COLOR)));
         BeginDrawing();
-            DrawText(TextFormat("Target: %.2f, %.2f", target.x, target.y), 0, 0, 20, RAYWHITE);
-            DrawText(TextFormat("Zoom: %.2f", zoom), 0, 80, 20, RAYWHITE);
 
             if (dragging) {
                 DrawCircleV(GetWorldToScreen2D(anchor, camera), 10, YELLOW);
@@ -207,9 +237,10 @@ int main() {
             BeginMode2D(camera);
                 DrawInfiniteGrid(camera);
                 DrawFunction(camera);
+                DrawSlopeLine(inputValue);
             EndMode2D();
 
-        // DrawWeightControls();
+        GradientDescentControls();
 
         EndDrawing();
     }
