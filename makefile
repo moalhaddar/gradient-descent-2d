@@ -2,7 +2,7 @@ BUILD_DIR := build
 SRC_DIR := src
 
 CFLAGS := $(shell pkg-config --cflags raylib) -I$(SRC_DIR)/external
-LIBS := $(shell pkg-config --libs raylib)
+LIBS := $(shell pkg-config --libs raylib) -lm
 
 all: $(BUILD_DIR) | main
 
