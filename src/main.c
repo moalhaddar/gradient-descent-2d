@@ -13,6 +13,14 @@
 float weight1_1, weight2_1;
 float weight1_2, weight2_2;
 
+Vector2 GetGridCoordinates(Vector2 position) {
+    return (Vector2){position.x / GRID_STEP, position.y / GRID_STEP};
+}
+
+Vector2 GetWorldCoordinates(Vector2 gridPosition) {
+    return (Vector2){gridPosition.x * GRID_STEP, gridPosition.y * GRID_STEP};
+}
+
 int DrawWeightControls() {
     Vector2 anchor01 = { 56, 48 };
     GuiGroupBox((Rectangle){ anchor01.x + 0, anchor01.y + 0, 256, 200 }, "Weights");
@@ -43,29 +51,35 @@ void DrawInfiniteGrid(Camera2D camera) {
     Vector2 cameraWorldPos = GetScreenToWorld2D((Vector2){0, 0}, camera);
     Vector2 cameraWorldEndPos = GetScreenToWorld2D((Vector2){GetScreenWidth(), GetScreenHeight()}, camera);
 
-    int startX = ((int)(cameraWorldPos.x / GRID_STEP) - 1) * GRID_STEP;
-    int endX = ((int)(cameraWorldEndPos.x / GRID_STEP) + 1) * GRID_STEP;
-    int startY = ((int)(cameraWorldPos.y / GRID_STEP) - 1) * GRID_STEP;
-    int endY = ((int)(cameraWorldEndPos.y / GRID_STEP) + 1) * GRID_STEP;
+    Vector2 startGrid = GetGridCoordinates(cameraWorldPos);
+    Vector2 endGrid = GetGridCoordinates(cameraWorldEndPos);
 
-    for (int x = startX; x <= endX; x += GRID_STEP) {
-        DrawLine(x, startY, x, endY, GRAY);
+    int startX = ((int)startGrid.x - 1);
+    int endX = ((int)endGrid.x + 1);
+    int startY = ((int)startGrid.y - 1);
+    int endY = ((int)endGrid.y + 1);
+
+    for (int x = startX; x <= endX; x++) {
+        Vector2 worldStart = GetWorldCoordinates((Vector2){x, startY});
+        Vector2 worldEnd = GetWorldCoordinates((Vector2){x, endY});
+        DrawLine(worldStart.x, worldStart.y, worldEnd.x, worldEnd.y, GRAY);
         char numStr[10];
-        snprintf(numStr, sizeof(numStr), "%d", x / GRID_STEP);
-        DrawText(numStr, x + 5, 5, 20 / camera.zoom, RAYWHITE);
+        snprintf(numStr, sizeof(numStr), "%d", x);
+        DrawText(numStr, worldStart.x + 5, 5, 20 / camera.zoom, RAYWHITE);
     }
 
-    for (int y = startY; y <= endY; y += GRID_STEP) {
-        DrawLine(startX, y, endX, y, GRAY);
-        if (y != 0) {  // Avoid drawing 0 twice
-            char numStr[10];
-            snprintf(numStr, sizeof(numStr), "%d", -y / GRID_STEP);
-            DrawText(numStr, 5, y + 5, 20 / camera.zoom, RAYWHITE);
-        }
+    for (int y = startY; y <= endY; y++) {
+        Vector2 worldStart = GetWorldCoordinates((Vector2){startX, y});
+        Vector2 worldEnd = GetWorldCoordinates((Vector2){endX, y});
+        DrawLine(worldStart.x, worldStart.y, worldEnd.x, worldEnd.y, GRAY);
+        char numStr[10];
+        snprintf(numStr, sizeof(numStr), "%d", -y);
+        DrawText(numStr, 5, worldStart.y + 5, 20 / camera.zoom, RAYWHITE);
     }
 
-    DrawLine(startX, 0, endX, 0, RED);
-    DrawLine(0, startY, 0, endY, GREEN);
+    Vector2 originWorld = GetWorldCoordinates((Vector2){0, 0});
+    DrawLine(startX * GRID_STEP, originWorld.y, endX * GRID_STEP, originWorld.y, RED);
+    DrawLine(originWorld.x, startY * GRID_STEP, originWorld.x, endY * GRID_STEP, GREEN);
 }
 
 float fx(float x) {
@@ -76,8 +90,11 @@ void DrawFunction(Camera2D camera) {
     Vector2 cameraWorldPos = GetScreenToWorld2D((Vector2){-1000, -1000}, camera);
     Vector2 cameraWorldEndPos = GetScreenToWorld2D((Vector2){GetScreenWidth() * 2, GetScreenHeight() * 2}, camera);
 
-    int startX = cameraWorldPos.x / GRID_STEP;
-    int endX = cameraWorldEndPos.x / GRID_STEP;
+    Vector2 startGrid = GetGridCoordinates(cameraWorldPos);
+    Vector2 endGrid = GetGridCoordinates(cameraWorldEndPos);
+
+    int startX = startGrid.x;
+    int endX = endGrid.x;
 
     int res = 10;
     Vector2 points[(endX - startX + 1) * res];
@@ -85,7 +102,8 @@ void DrawFunction(Camera2D camera) {
 
     for (float x = startX; x <= endX; x+=(1.0f/res)) {
         float y = fx(x);
-        points[pointCount] = (Vector2){(float)x * GRID_STEP, -y * GRID_STEP};
+        Vector2 worldPoint = GetWorldCoordinates((Vector2){x, -y});
+        points[pointCount] = worldPoint;
         pointCount++;
     }
 
@@ -93,12 +111,13 @@ void DrawFunction(Camera2D camera) {
 
     float h = 0.0001;
     Vector2 mousePos = GetScreenToWorld2D(GetMousePosition(), camera);
-    float x = mousePos.x / GRID_STEP;
+    Vector2 mouseGridPos = GetGridCoordinates(mousePos);
+    float x = mouseGridPos.x;
     float y = fx(x);
     float slope = (fx(x + h) - fx(x)) / h;
 
     float lineLength = 1.0f;
-    // The line equation is y = mx + b, where m is slope and b is y-intercept
+        // The line equation is y = mx + b, where m is slope and b is y-intercept
     // We want to create a line segment centered at (x, y) with length 'lineLength'
     // To do this, we move half the length in both directions along the line
     // 
@@ -118,8 +137,8 @@ void DrawFunction(Camera2D camera) {
     //   x2 = x + lineLength/2
     //   y2 = y + (lineLength/2) * slope
     //   This moves forward along the line by half the length
-    Vector2 point1 = (Vector2){(x - lineLength/2) * GRID_STEP, -(y - lineLength/2 * slope) * GRID_STEP};
-    Vector2 point2 = (Vector2){(x + lineLength/2) * GRID_STEP, -(y + lineLength/2 * slope) * GRID_STEP};
+    Vector2 point1 = GetWorldCoordinates((Vector2){x - lineLength/2, -(y - lineLength/2 * slope)});
+    Vector2 point2 = GetWorldCoordinates((Vector2){x + lineLength/2, -(y + lineLength/2 * slope)});
     DrawLineEx(point1, point2, 4.0f, RED);
 }
 
