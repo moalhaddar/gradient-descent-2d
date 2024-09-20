@@ -68,25 +68,52 @@ void DrawInfiniteGrid(Camera2D camera) {
     DrawLine(0, startY, 0, endY, GREEN);
 }
 
+float fx(float x) {
+    return 0.2 * powf(x, 4) + 0.1 * powf(x, 3) - powf(x, 2) + 2;
+};
+
 void DrawFunction(Camera2D camera) {
     Vector2 cameraWorldPos = GetScreenToWorld2D((Vector2){-1000, -1000}, camera);
     Vector2 cameraWorldEndPos = GetScreenToWorld2D((Vector2){GetScreenWidth() * 2, GetScreenHeight() * 2}, camera);
 
     int startX = cameraWorldPos.x / GRID_STEP;
     int endX = cameraWorldEndPos.x / GRID_STEP;
-    printf("startX: %d, endX: %d\n", startX, endX);
 
     int res = 10;
     Vector2 points[(endX - startX + 1) * res];
     int pointCount = 0;
 
     for (float x = startX; x <= endX; x+=(1.0f/res)) {
-        float y = 0.2 * powf(x, 4) + 0.1 * powf(x, 3) - powf(x, 2) + 2;
+        float y = fx(x);
         points[pointCount] = (Vector2){(float)x * GRID_STEP, -y * GRID_STEP};
         pointCount++;
     }
 
     DrawLineStrip(points, pointCount, YELLOW);
+
+    float h = 0.0001;
+    Vector2 mousePos = GetScreenToWorld2D(GetMousePosition(), camera);
+    float x = mousePos.x / GRID_STEP;
+    float y = fx(x);
+    float slope = (fx(x + h) - fx(x)) / h;
+
+    float lineLength = 1.0f;
+    // The line equation is y = mx + b, where m is slope and b is y-intercept
+    // We want to create a line segment centered at (x, y) with length 'lineLength'
+    // To do this, we move half the length in both directions along the line
+    // 
+    // For point1: 
+    //   x1 = x - lineLength/2
+    //   y1 = y - (lineLength/2) * slope
+    //   This moves back along the line by half the length
+    // 
+    // For point2:
+    //   x2 = x + lineLength/2
+    //   y2 = y + (lineLength/2) * slope
+    //   This moves forward along the line by half the length
+    Vector2 point1 = (Vector2){(x - lineLength/2) * GRID_STEP, -(y - lineLength/2 * slope) * GRID_STEP};
+    Vector2 point2 = (Vector2){(x + lineLength/2) * GRID_STEP, -(y + lineLength/2 * slope) * GRID_STEP};
+    DrawLineEx(point1, point2, 4.0f, RED);
 }
 
 int main() {
@@ -146,7 +173,6 @@ int main() {
         ClearBackground(GetColor(GuiGetStyle(DEFAULT, BACKGROUND_COLOR)));
         BeginDrawing();
             DrawText(TextFormat("Target: %.2f, %.2f", target.x, target.y), 0, 0, 20, RAYWHITE);
-            DrawText(TextFormat("Mouse Delta: %.2f, %.2f", mouseDelta.x, mouseDelta.y), 0, 40, 20, RAYWHITE);
             DrawText(TextFormat("Zoom: %.2f", zoom), 0, 80, 20, RAYWHITE);
 
             if (dragging) {
@@ -157,7 +183,7 @@ int main() {
                 DrawFunction(camera);
             EndMode2D();
 
-        DrawWeightControls();
+        // DrawWeightControls();
 
         EndDrawing();
     }
