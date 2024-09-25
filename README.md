@@ -33,6 +33,8 @@ make
 ./build/main
 ```
 
+Note that you can change the input function in the `src/main.c` file. It's currently called `fx`.
+
 ## Demo
 
 ![Gradient Descent 2D Visualizer](./assets/example1.gif)

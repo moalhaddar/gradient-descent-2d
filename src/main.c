@@ -12,8 +12,6 @@
 #define GRID_STEP 100
 #define H 0.00001
 
-float weight1_1, weight2_1;
-float weight1_2, weight2_2;
 double inputValue;
 double targetInputValue;
 float learnRate = 0.2;
@@ -55,23 +53,6 @@ void GradientDescentControls() {
     }
 
     inputValue = Lerp(inputValue, targetInputValue, 0.01f);
-}
-
-int classify(float input_1, float input_2) {
-    double output_1 = input_1 * weight1_1 + input_2 * weight2_1;
-    double output_2 = input_1 * weight1_2 + input_2 * weight2_2;
-
-    return (output_1 > output_2) ? 0 : 1;
-}
-
-void visualize(float graphX, float graphY) {
-    float predictedClass = classify(graphX, graphX);
-
-    if (predictedClass == 0) {
-        DrawPixel(graphX, graphY, BLUE);
-    } else {
-        DrawPixel(graphX, graphY, RED);
-    }
 }
 
 void DrawInfiniteGrid(Camera2D camera) {
@@ -164,25 +145,20 @@ void DrawFunction(Camera2D camera) {
     }
 
     DrawLineStrip(points, pointCount, YELLOW);
-
-    Vector2 mousePos = GetScreenToWorld2D(GetMousePosition(), camera);
-    Vector2 mouseGridPos = GetGridCoordinates(mousePos);
-    float x = mouseGridPos.x;
 }
 
 int main() {
     int factor = 100;
     char* styles_path = "./src/external/raygui-4.0/styles/cyber/style_cyber.rgs";
-    InitWindow(16 * factor, 9 * factor, "Neural Network");
+    InitWindow(16 * factor, 9 * factor, "Gradient Descent 2D Visualizer");
     GuiLoadStyle(styles_path);
     GuiSetStyle(DEFAULT, TEXT_SIZE, 20);
 
-    srand(time(NULL));  // Initialize random seed
-    inputValue = ((double)rand() / RAND_MAX) * 6 - 3;  // Initial random value between -5 and 5
+    srand(time(NULL));
+    inputValue = ((double)rand() / RAND_MAX) * 6 - 3;
     targetInputValue = inputValue;
 
     Vector2 target = {0, 0};
-    Vector2 offset = {0, 0};
     Vector2 anchor = {0, 0};
     Vector2 mouseDelta = {0, 0};
     int dragging = 0;
